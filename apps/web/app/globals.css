@@ -2,66 +2,163 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Design tokens ──────────────────────────────────────────────────────── */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --primary: 262 83% 58%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
+    /* Exact brand primary: #534AB7 → hsl(245, 43%, 50%) */
+    --primary:            245 43% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --background:         0 0% 100%;
+    --foreground:         240 10% 4%;
+
+    --card:               0 0% 100%;
+    --card-foreground:    240 10% 4%;
+
+    --secondary:          240 5% 96%;
+    --secondary-foreground: 240 6% 10%;
+
+    --muted:              240 5% 96%;
+    --muted-foreground:   240 4% 46%;
+
+    /* Subtle purple tint on light backgrounds */
+    --accent:             245 40% 96%;
+    --accent-foreground:  245 43% 30%;
+
+    --destructive:        0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 262 83% 58%;
-    --radius: 0.5rem;
+
+    --border:             240 6% 90%;
+    --input:              240 6% 90%;
+    --ring:               245 43% 50%;
+    --radius:             0.5rem;
+
+    /* Sidebar / surface variants */
+    --surface-1:          240 5% 98%;
+    --surface-2:          240 5% 96%;
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --primary: 262 83% 58%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    /* Dark bg: #0a0a0f → hsl(240, 20%, 5%) */
+    --background:         240 20% 5%;
+    --foreground:         240 10% 97%;
+
+    /* Card: one step lighter → hsl(240, 22%, 8%) ≈ #0f0f1a */
+    --card:               240 22% 8%;
+    --card-foreground:    240 10% 97%;
+
+    --primary:            245 43% 62%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary:          240 18% 14%;
+    --secondary-foreground: 240 10% 97%;
+
+    --muted:              240 18% 14%;
+    --muted-foreground:   240 8% 60%;
+
+    /* Purple-tinted hover surface */
+    --accent:             245 30% 16%;
+    --accent-foreground:  240 10% 97%;
+
+    --destructive:        0 63% 40%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 262 83% 58%;
+
+    /* Border: hsl(240, 18%, 18%) ≈ #252535 */
+    --border:             240 18% 18%;
+    --input:              240 18% 18%;
+    --ring:               245 43% 62%;
+
+    --surface-1:          240 20% 7%;
+    --surface-2:          240 18% 10%;
   }
 }
 
+/* ─── Base resets ─────────────────────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border;
   }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Focus ring that actually looks good */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 }
 
-/* Streaming cursor animation */
+/* ─── Custom scrollbar ────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 100px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+/* ─── Typography utilities ────────────────────────────────────────────────── */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+}
+
+/* ─── Streaming cursor ────────────────────────────────────────────────────── */
 @keyframes blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  50%       { opacity: 0; }
 }
 .streaming-cursor::after {
   content: "▋";
   animation: blink 1s step-end infinite;
   @apply text-primary;
+}
+
+/* ─── Radix portal animations ────────────────────────────────────────────── */
+@keyframes overlay-show {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes overlay-hide {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes content-show {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.96); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes content-hide {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to   { opacity: 0; transform: translate(-50%, -48%) scale(0.96); }
+}
+
+/* ─── Gradient helpers ────────────────────────────────────────────────────── */
+.gradient-primary {
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(245 60% 70%));
+}
+.gradient-surface {
+  background: linear-gradient(180deg, hsl(var(--card)), hsl(var(--background)));
 }
