@@ -1,0 +1,245 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum Plan {
+  FREE
+  PRO
+  CREATOR
+  ENTERPRISE
+}
+
+enum EventType {
+  COPY
+  SAVE
+  ENHANCE
+  SHARE
+  VIEW
+  GENERATE
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                String    @unique
+  username             String?   @unique
+  displayName          String?
+  avatarUrl            String?
+  plan                 Plan      @default(FREE)
+  creditsRemaining     Int       @default(10)
+  creditsResetAt       DateTime?
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  prompts       Prompt[]
+  collections   Collection[]
+  promptLikes   PromptLike[]
+  promptEvents  PromptEvent[]
+
+  @@index([email])
+  @@index([plan])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Category
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Category {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String
+  slug             String   @unique
+  description      String?
+  icon             String?
+  systemPrompt     String   @db.Text
+  styleVocabulary  Json?
+  modelOverride    String?
+  ragThreshold     Float    @default(0.92)
+  isActive         Boolean  @default(true)
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  prompts    Prompt[]
+  templates  PromptTemplate[]
+
+  @@index([isActive, sortOrder])
+  @@map("categories")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Prompt
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Prompt {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String   @db.Uuid
+  categoryId      String   @db.Uuid
+  userInput       String
+  generatedPrompt String   @db.Text
+  negativePrompt  String?  @db.Text
+  toolVariants    Json?
+  metadata        Json?
+  qualityScore    Float?
+  modelUsed       String?
+  inputTokens     Int?
+  outputTokens    Int?
+  costUsd         Float?
+  copyCount       Int      @default(0)
+  likeCount       Int      @default(0)
+  isPublic        Boolean  @default(false)
+  isFeatured      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category        Category         @relation(fields: [categoryId], references: [id])
+  versions        PromptVersion[]
+  likes           PromptLike[]
+  events          PromptEvent[]
+  collectionItems CollectionItem[]
+
+  @@index([userId])
+  @@index([categoryId])
+  @@index([isPublic, qualityScore(sort: Desc)])
+  @@index([isPublic, likeCount(sort: Desc)])
+  @@index([isFeatured, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("prompts")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PromptVersion
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PromptVersion {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  promptId       String   @db.Uuid
+  content        String   @db.Text
+  negativePrompt String?  @db.Text
+  modelUsed      String?
+  qualityScore   Float?
+  createdAt      DateTime @default(now())
+
+  prompt Prompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  @@index([promptId, createdAt(sort: Desc)])
+  @@map("prompt_versions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Collection
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Collection {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @db.Uuid
+  name        String
+  description String?
+  coverImage  String?
+  isPublic    Boolean  @default(false)
+  itemCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CollectionItem[]
+
+  @@index([userId])
+  @@index([isPublic, createdAt(sort: Desc)])
+  @@map("collections")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CollectionItem
+// ─────────────────────────────────────────────────────────────────────────────
+
+model CollectionItem {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collectionId String   @db.Uuid
+  promptId     String   @db.Uuid
+  addedAt      DateTime @default(now())
+
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  prompt     Prompt     @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, promptId])
+  @@index([collectionId, addedAt(sort: Desc)])
+  @@map("collection_items")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PromptLike
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PromptLike {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @db.Uuid
+  promptId  String   @db.Uuid
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  prompt Prompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, promptId])
+  @@index([promptId])
+  @@map("prompt_likes")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PromptEvent
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PromptEvent {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String?   @db.Uuid
+  promptId  String    @db.Uuid
+  sessionId String?
+  eventType EventType
+  metadata  Json?
+  createdAt DateTime  @default(now())
+
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  prompt Prompt @relation(fields: [promptId], references: [id], onDelete: Cascade)
+
+  @@index([promptId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([eventType, createdAt(sort: Desc)])
+  @@map("prompt_events")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PromptTemplate
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PromptTemplate {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoryId      String   @db.Uuid
+  name            String
+  templateString  String   @db.Text
+  variables       Json?
+  avgQualityScore Float?
+  usageCount      Int      @default(0)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId, isActive])
+  @@index([usageCount(sort: Desc)])
+  @@map("prompt_templates")
+}

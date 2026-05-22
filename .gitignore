@@ -1,0 +1,42 @@
+# ─── Node / Next.js ──────────────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+build/
+dist/
+.turbo/
+
+# ─── Environment ─────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ─── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+*.egg-info/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ─── Prisma ──────────────────────────────────────────────────────────────────
+packages/db/node_modules/
+
+# ─── Misc ────────────────────────────────────────────────────────────────────
+.DS_Store
+*.log
+*.tsbuildinfo
+.vercel
+.idea/
+.vscode/settings.json
+coverage/
