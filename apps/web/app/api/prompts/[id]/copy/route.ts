@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { prisma } from "@/lib/db";
-import { incrementCopyCount } from "@/lib/redis";
+import { incrementCopyCount, incrementTrendingCounters } from "@/lib/redis";
 import { Errors } from "@/lib/api-helpers";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +38,7 @@ export async function POST(_req: Request, { params }: Params) {
       select: { copyCount: true },
     }),
     incrementCopyCount(id),
+    incrementTrendingCounters(id),
   ]);
 
   // Fire-and-forget: create COPY event (only when user is authenticated)

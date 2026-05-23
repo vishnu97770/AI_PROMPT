@@ -156,3 +156,46 @@ export async function incrementCopyCount(promptId: string): Promise<void> {
     console.error("[redis] incrementCopyCount failed:", err);
   }
 }
+
+// ─── Trending windows ─────────────────────────────────────────────────────────
+
+/**
+ * Record a copy event in two sliding windows used by the trending cron job.
+ * Keys expire automatically when the window elapses, so a prompt
+ * with no copies drops out of the trending calculation naturally.
+ */
+export async function incrementTrendingCounters(promptId: string): Promise<void> {
+  try {
+    await redisPipeline([
+      ["INCR",   `trending:24h:${promptId}`],
+      ["EXPIRE", `trending:24h:${promptId}`, 86_400],   // 24 h
+      ["INCR",   `trending:7d:${promptId}`],
+      ["EXPIRE", `trending:7d:${promptId}`, 604_800],   // 7 d
+    ]);
+  } catch (err) {
+    console.error("[redis] incrementTrendingCounters failed:", err);
+  }
+}
+
+/**
+ * Fetch 24 h and 7 d copy counts for a batch of prompt IDs.
+ * Used by the cron job to calculate trendingScore.
+ */
+export async function getManyTrendingCounts(
+  promptIds: string[]
+): Promise<Map<string, { h24: number; d7: number }>> {
+  if (!promptIds.length) return new Map();
+  const commands = promptIds.flatMap((id) => [
+    ["GET", `trending:24h:${id}`],
+    ["GET", `trending:7d:${id}`],
+  ]);
+  const results = await redisPipeline(commands);
+  const map = new Map<string, { h24: number; d7: number }>();
+  promptIds.forEach((id, i) => {
+    map.set(id, {
+      h24: Number(results[i * 2]     ?? 0),
+      d7:  Number(results[i * 2 + 1] ?? 0),
+    });
+  });
+  return map;
+}

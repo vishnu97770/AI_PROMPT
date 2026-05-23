@@ -24,7 +24,7 @@ export const promptListQuerySchema = z.object({
   limit:    z.coerce.number().int().min(1).max(50).default(20),
   category: z.string().optional(),
   search:   z.string().max(200).optional(),
-  sort:     z.enum(["createdAt", "copyCount", "qualityScore"]).default("createdAt"),
+  sort:     z.enum(["newest", "oldest", "copyCount", "qualityScore"]).default("newest"),
 });
 
 // ─── Prompt update ────────────────────────────────────────────────────────────

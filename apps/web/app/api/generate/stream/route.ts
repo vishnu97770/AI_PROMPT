@@ -47,8 +47,6 @@ export async function GET(req: Request) {
   const inputHash = await hashInput(`${userInput}::${categorySlug}`);
   const cached = fresh ? null : await getCachedPrompt(inputHash);
 
-  const encoder = new TextEncoder();
-
   if (cached) {
     // Stream cached result immediately as a done event
     const stream = new ReadableStream({
@@ -92,9 +90,6 @@ export async function GET(req: Request) {
     return Errors.serverError("AI service returned an error");
   }
 
-  let savedPromptId: string | null = null;
-  let finalResult: GenerateResponse | null = null;
-
   const stream = new ReadableStream({
     async start(controller) {
       const reader = aiRes.body!.getReader();
@@ -121,9 +116,40 @@ export async function GET(req: Request) {
               const event = JSON.parse(raw) as StreamEvent;
               controller.enqueue(sseEvent(event));
 
-              // Capture the final result payload
+              // After forwarding done event, persist to DB while stream is still open
               if ("done" in event && event.done) {
-                finalResult = event.result;
+                const finalResult = event.result;
+                try {
+                  const saved = await prisma.prompt.create({
+                    data: {
+                      userId: user.id,
+                      categoryId: category.id,
+                      userInput,
+                      generatedPrompt: finalResult.generatedPrompt,
+                      negativePrompt: finalResult.negativePrompt ?? null,
+                      toolVariants: finalResult.toolVariants as object,
+                      metadata: finalResult.metadata as object,
+                      qualityScore: finalResult.qualityScore ?? null,
+                      modelUsed: finalResult.modelUsed,
+                    },
+                    select: { id: true },
+                  });
+
+                  // Emit saved event so client gets the DB-assigned promptId
+                  controller.enqueue(sseEvent({ saved: true, promptId: saved.id }));
+
+                  prisma.promptEvent
+                    .create({ data: { userId: user.id, promptId: saved.id, eventType: "GENERATE" } })
+                    .catch(() => {});
+
+                  setCachedPrompt(
+                    inputHash,
+                    JSON.stringify({ ...finalResult, promptId: saved.id, cached: false })
+                  ).catch(() => {});
+                } catch (err) {
+                  console.error("[generate/stream] DB persist failed:", err);
+                  controller.enqueue(sseEvent({ saved: false, promptId: null }));
+                }
               }
             } catch {
               // malformed event — skip
@@ -133,46 +159,6 @@ export async function GET(req: Request) {
       } finally {
         reader.releaseLock();
         controller.close();
-      }
-
-      // ── Persist to DB + cache after stream ends ─────────────────────────────
-      if (finalResult) {
-        try {
-          const saved = await prisma.prompt.create({
-            data: {
-              userId: user.id,
-              categoryId: category.id,
-              userInput,
-              generatedPrompt: finalResult.generatedPrompt,
-              negativePrompt: finalResult.negativePrompt ?? null,
-              toolVariants: finalResult.toolVariants as object,
-              metadata: finalResult.metadata as object,
-              qualityScore: finalResult.qualityScore ?? null,
-              modelUsed: finalResult.modelUsed,
-            },
-            select: { id: true },
-          });
-          savedPromptId = saved.id;
-
-          // Fire-and-forget: create GENERATE event
-          prisma.promptEvent
-            .create({
-              data: {
-                userId: user.id,
-                promptId: savedPromptId,
-                eventType: "GENERATE",
-              },
-            })
-            .catch(() => {});
-
-          // Cache the result keyed by input hash
-          await setCachedPrompt(
-            inputHash,
-            JSON.stringify({ ...finalResult, promptId: savedPromptId, cached: false })
-          );
-        } catch (err) {
-          console.error("[generate/stream] DB persist failed:", err);
-        }
       }
     },
   });

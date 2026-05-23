@@ -101,6 +101,7 @@ model Prompt {
   costUsd         Float?
   copyCount       Int      @default(0)
   likeCount       Int      @default(0)
+  trendingScore   Float    @default(0)
   isPublic        Boolean  @default(false)
   isFeatured      Boolean  @default(false)
   createdAt       DateTime @default(now())
@@ -115,6 +116,7 @@ model Prompt {
 
   @@index([userId])
   @@index([categoryId])
+  @@index([isPublic, trendingScore(sort: Desc)])
   @@index([isPublic, qualityScore(sort: Desc)])
   @@index([isPublic, likeCount(sort: Desc)])
   @@index([isFeatured, createdAt(sort: Desc)])

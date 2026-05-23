@@ -52,13 +52,12 @@ export async function GET(req: Request) {
 
   // Build orderBy
   const orderBy =
-    sort === "copyCount"
-      ? { copyCount: "desc" as const }
-      : sort === "qualityScore"
-      ? { qualityScore: "desc" as const }
-      : { createdAt: "desc" as const };
+    sort === "oldest"       ? { createdAt: "asc"  as const } :
+    sort === "copyCount"    ? { copyCount:  "desc" as const } :
+    sort === "qualityScore" ? { qualityScore: "desc" as const } :
+                              { createdAt: "desc" as const }; // newest
 
-  const [prompts, total] = await Promise.all([
+  const [rows, total] = await Promise.all([
     prisma.prompt.findMany({
       where,
       orderBy,
@@ -72,11 +71,11 @@ export async function GET(req: Request) {
   ]);
 
   return NextResponse.json({
-    data: prompts,
+    prompts: rows,
     total,
     page,
     totalPages: Math.ceil(total / limit),
-    hasNextPage: skip + prompts.length < total,
+    hasNextPage: skip + rows.length < total,
   });
 }
 
