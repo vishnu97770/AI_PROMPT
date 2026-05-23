@@ -12,12 +12,12 @@ class UserPlan(str, Enum):
 
 class GenerateRequest(BaseModel):
     user_input: str = Field(..., min_length=3, max_length=2000)
-    category: str = Field(..., description="Category slug from constants")
+    category_slug: str = Field(..., description="Category slug, e.g. 'ai-image-generation'")
     user_id: str
     user_plan: UserPlan = UserPlan.FREE
     has_image: bool = False
     image_metadata: dict[str, Any] | None = None
-    fresh: bool = False  # bypass cache
+    fresh: bool = False  # bypass semantic cache
 
 
 class ToolVariants(BaseModel):
@@ -31,8 +31,9 @@ class ToolVariants(BaseModel):
 class GenerateResponse(BaseModel):
     prompt_id: str
     generated_prompt: str
-    tool_variants: ToolVariants
-    metadata: dict[str, Any]
+    negative_prompt: str | None = None
+    tool_variants: ToolVariants = Field(default_factory=ToolVariants)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     model_used: str
     cached: bool = False
     quality_score: float | None = None
